@@ -10,8 +10,8 @@ I cleaned intraday data for each stock in intradayselect.py
 3. Time Series course: Assignment 1_code_Time series.RPF
 we use Rats software in this project.
 
-4. Derivative Product course: 
-
+4. Derivative Product course: Assignment2 _code_Derivative Product.ipynb
+I built three-dimensional grid to construct numerical method for option pricing.
 
 5.Portfolio Management course: PM_Project1_partA_Q9.m
 It's part of the code of my projects and we use Matlab software.
