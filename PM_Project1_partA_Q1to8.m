@@ -1,11 +1,8 @@
 % PROJECT 1
 
-% 6-202-18A.H2019  Portfolio Management 
+%Portfolio Management 
 
-% To: Professor Tolga Cenesizoglu
-
-% By: Christine Ghantous 11247444; Jiayu Li 11258121;
-%     Jingjing Zhang 11258314; Mengna Wang 11204562
+% By: Jingjing Zhang; Mengna Wang; Christine Ghantous; Jiayu Li
 
 %*************************************************************************
 %*************************************************************************
