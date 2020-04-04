@@ -1,0 +1,1131 @@
+*************************************************************************************
+*
+* Assignment I
+*
+*************************************************************************************
+*
+* HEC MONTREAL
+* Time Series Econometrics
+* 6-837-10A, M.Sc. Fall 2018
+* To: Professor Michel Normandin
+* By: Mengna WANG 11204562    Jingjing Zhang 11258314
+*
+*************************************************************************************
+*
+* Data: S&P 500 (^GSPC), SNP - SNP Real Time Price. Currency in USD, monthly close
+*       price from 01-1968 to 12-2017, 600 monthly data during 50 years in total.
+*
+* Source: https://ca.finance.yahoo.com/quote/%5EGSPC?p=^GSPC&.tsrc=fin-srch
+*
+*************************************************************************************
+*
+* Read data
+*
+calendar(m) 1968 1
+allocate 2017:12
+*
+compute nbeg = (1968:01)
+compute nend = (2017:12)
+*
+open data E:\7er semestre\Time series\assignement 1\GSPC2.xls
+data(organization=columns,format=xls) nbeg nend year month close_sp500
+*
+print(dates) nbeg nend close_sp500
+*
+*
+*
+*************************************************************************************
+*
+* Question 1
+*
+*************************************************************************************
+*
+* a. Graph of the data
+*
+graph(patterns,dates,header='1968/01~2017/12 monthly close price of index S&P500') 1
+#close_sp500 nbeg nend 1
+*
+*
+************************************************************
+*
+* b. Deterministic Trend Transformations
+*
+set trend nbeg nend = t
+print(dates) nbeg nend trend
+*
+set Zt nbeg nend = log(close_sp500(t))
+linreg(print) Zt nbeg nend c_sp500
+#constant trend
+*
+*
+* Notes:
+* 1)Zt is the log transformation for index sp500 close price
+* 2)c_sp500 implies the cyclical component which is the percentage derivation of the
+*   index sp500 close price relative to the linear deterministic trend
+* 3)linreg computes the OLS: \hat beta = (X'X)^{-1}(X'Y)
+*
+*
+*************************************************************
+*
+* c. Unconditional Autocorrelations for Deterministic Trend
+*
+correlate(number=18,results=auto_c_sp500,print,qstats,span=1) c_sp500 (nbeg+1) nend
+*
+*
+************************************************************
+*
+* d. Stochastic Trend Transformations
+*
+set Yt (nbeg+1) nend = (Zt(t)-Zt(t-1))
+set c_dsp500 (nbeg+1) nend = (c_sp500(t)-c_sp500(t-1))
+*
+*
+* Notes:
+* Yt is the log return for index sp500 close price which is defined as the first
+* difference. c_dsp500 is the first diffrence of c_sp500, in this case, is the
+* cyclical component which is related to the Yt.
+*
+*
+*************************************************************
+*
+* e. Unconditional Autocorrelations for Stochastic Trend
+*
+correlate(number=18,results=auto_c_dsp500,print,qstats,span=1) c_dsp500 (nbeg+1) nend
+correlate(number=18,results=auto_Yt,print,qstats,span=1) Yt (nbeg+1) nend
+*
+*
+* Notes:
+* 1)The Liung-Box statistics indicate that c_sp500 is not white noise, but at 10%
+*   significant level the autocorrelation of c_dsp500 is significantly equal to zero.
+* 2)The autocorrelation of Yt has the same result with that of c_dsp.
+* 3)The autocorrelations suggest that Yt is stationary (short memory), but that
+*   c_sp500 is not stationary.
+*   For this reason, we use Yt (the first difference)
+*
+*************************************************************
+*
+* Graph of the data
+*
+set trend_deter_sp500 nbeg nend = Zt(t)-c_sp500(t)
+*
+graph(patterns,dates,header='log S&P500(Zt) and linear deterministic trend') 2
+#Zt nbeg nend 1
+#trend_deter_sp500 nbeg nend 2
+*
+spgraph(vfield=2,hfield=2)
+*
+  graph(samesize,patterns,dates,header='Cyclical component associate with deterministic trend: c_sp500') 1
+  #c_sp500 (nbeg+1) nend 1
+  graph(samesize,patterns,nodate,header='Autocorrelation of c_sp500',min=-0.25,max=1.0) 1
+  #auto_c_sp500 1 18 1
+*
+  graph(samesize,patterns,dates,header='First diffrence/log return of index S&P500(Yt)') 1
+  #Yt (nbeg+1) nend 1
+  graph(samesize,patterns,nodate,header='Autocorrelation of Yt',min=-0.25,max=1.0) 1
+  #auto_Yt 1 18 1
+*
+spgraph(done)
+*
+*
+*
+*****************************************************************************************
+*
+* Question 2
+*
+*****************************************************************************************
+*
+* a. OLS Estimation
+*
+*************************************************************
+* process 1
+*
+linreg(print) Yt (nbeg+1+3) nend
+#constant Yt{1 to 3}
+compute delta1 = %beta(1)
+compute phi1_1 = %beta(2)
+compute phi1_2 = %beta(3)
+compute phi1_3 = %beta(4)
+compute sigma1 =(%seesq)**0.5
+compute b1=%beta
+compute v1=%seesq*%xx
+*
+display delta1
+display phi1_1
+display phi1_2
+display phi1_3
+display sigma1
+*
+****************************
+* process 2
+*
+set mean_Y1_Y2 (nbeg+4) nend = ((Zt(t-1)-Zt(t-2))+(Zt(t-2)-Zt(t-3)))/2.0
+linreg(print) Yt (nbeg+1+3) nend
+#constant  mean_Y1_Y2 Yt{3}
+compute delta2 = %beta(1)
+compute phi2_1 = %beta(2)
+compute phi2_2 = %beta(3)
+compute sigma2 =(%seesq)**0.5
+compute b2=%beta
+compute v2=%seesq*%xx
+*
+display delta2
+display phi2_1
+display phi2_2
+display sigma2
+*
+*****************************
+* process 3
+*
+set mean_Y1_Y2_Y3 (nbeg+4) nend = ((Zt(t-1)-Zt(t-2))+(Zt(t-2)-Zt(t-3))+(Zt(t-3)-Zt(t-4)))/3.0
+linreg(print) Yt (nbeg+1+3) nend
+#constant  mean_Y1_Y2_Y3
+compute delta3 = %beta(1)
+compute phi3 = %beta(2)
+compute sigma3 =(%seesq)**0.5
+compute b3=%beta
+compute v3=%seesq*%xx
+*
+display delta3
+display phi3
+display sigma3
+*
+* Notes:
+* Linreg computes the OLS: \hat beta = (X'X)^{-1}(X'Y). This is the analytical solution
+* of the OLS estimator and of the conditional ML estimator,if the error term follow a
+* normal ditribution.
+*
+*
+**************************************************************
+*
+* b. Wald Test
+*
+**************************
+*
+* process 2 VS process 1
+*
+declare rect R1
+dimension R1(2,4)
+compute R1=||0,1.0,0,0|0,0,1.0,0||
+display R1
+*
+declare rect m_r1
+dimension m_r1(2,1)
+compute m_r1=||0.5*phi2_1|0.5*phi2_1||
+display m_r1
+
+declare rect beta1
+dimension beta1(4,1)
+compute beta1=||delta1|phi1_1|phi1_2|phi1_3||
+display beta1
+
+compute wald1=(tr((R1*beta1)-m_r1))*(inv(R1*v1*tr(R1)))*((R1*beta1)-m_r1)
+compute wald_2_1 = %det(wald1)
+cdf(title="Wald test for process 2 VS process 1") chisqr wald_2_1 2
+*
+***************************
+*
+* process 3 VS process 1
+*
+declare rect R2
+dimension R2(3,4)
+compute R2=||0,1.0,0,0|0,0,1.0,0|0,0,0,1.0||
+display R2
+*
+declare rect m_r2
+dimension m_r2(3,1)
+compute m_r2=|| phi3/3.0|phi3/3.0|phi3/3.0||
+display m_r2
+
+compute wald2=(tr((R2*beta1)-m_r2))*(inv(R2*v1*tr(R2)))*((R2*beta1)-m_r2)
+compute wald_3_1 = %det(wald2)
+cdf(title="Wald test for process 3 VS process 1") chisqr wald_3_1 3
+*
+***************************
+*
+* process 3 VS process 2
+*
+declare rect R3
+dimension R3(2,3)
+compute R3=||0,0.5,0|0,0,1||
+display R3
+*
+declare rect m_r3
+dimension m_r3(3,1)
+compute m_r3=|| phi3/3.0|phi3/3.0||
+display m_r3
+
+declare rect beta2
+dimension beta2(3,1)
+compute beta2=||delta2|phi2_1|phi2_2||
+display beta2
+
+compute wald3=(tr((R3*beta2)-m_r3))*(inv(R3*v2*tr(R3)))*((R3*beta2)-m_r3)
+compute wald_3_2 = %det(wald3)
+cdf(title="Wald test for process 3 VS process 2") chisqr wald_3_2 2
+*
+* Notes:
+* 1)Wald test for process 2 VS process 1 Chi-Squared(2)= 2.242249 with Significance
+*   Level 0.32591304, we can't reject process 2 at 5% significant level.
+* 2)Wald test for process 3 VS process 1 the Chi-Squared(3)=2.406654 with Significance
+*   Level 0.49239717, we can't reject process 3 at 5% significant level.
+* 3)Wald test for process 3 VS process 2 Chi-Squared(2)=0.164061 with Significance
+*   Level 0.92124384, we can't reject process 3 at 5% significant level.
+* 4)The wald test indicate that the process 3 is the most significant
+*
+*
+**************************************************************
+*
+* c. Likelihood ratio test
+*
+****************************
+*
+* process 2 VS process 1
+*
+compute lr_2_1=%nobs*(log(sigma2**2.0)-log(sigma1**2.0))
+cdf(title="likelihood test for process 2 VS process 1") chisqr lr_2_1 2
+*
+****************************
+*
+* process 3 VS process 1
+*
+compute lr_3_1=%nobs*(log(sigma3**2.0)-log(sigma1**2.0))
+cdf(title="likelihood test for process 3 VS process 1") chisqr lr_3_1 3
+*
+****************************
+*
+* process 3 VS process 2
+*
+compute lr_3_2=%nobs*(log(sigma3**2.0)-log(sigma2**2.0))
+cdf(title="likelihood test for process 3 VS process 2") chisqr lr_3_2 2
+*
+* Notes:
+* 1)likelihood test for process 2 VS process 1 Chi-Squared(2)=1.247228 with
+*   Significance Level 0.53600382
+* 2)likelihood test for process 3 VS process 1 Chi-Squared(3)=0.407884 with
+*   Significance Level 0.93860914
+* 3)likelihood test for process 3 VS process 2 Chi-Squared(2)=-0.839344 with
+*   Significance Level NA
+* 4)The likelihood test indicates that process 3 is the most sigificant
+*   at 5% signifiant level.
+*
+*
+**************************************************************
+*
+* d. Lagrange multiplier test
+*
+****************************
+*
+* process 2 VS process 1
+*
+linreg(noprint) Yt (nbeg+1+3) nend u_2
+#constant  mean_Y1_Y2 Yt{3}
+*
+linreg(noprint) u_2 (nbeg+1+3) nend
+#constant Yt{1 to 3}
+
+compute lm_2_1=%nobs*%rsquared
+cdf(title="langrange multiplier test for process 2 VS process 1") chisqr lm_2_1 2
+*
+****************************
+*
+* process 3 VS process 1
+*
+linreg(noprint) Yt (nbeg+1+3) nend u_3
+#constant  mean_Y1_Y2_Y3
+*
+linreg(noprint) u_3 (nbeg+1+3) nend
+#constant Yt{1 to 3}
+
+compute lm_3_1=%nobs*%rsquared
+cdf(title="langrange multiplier test for process 3 VS process 1") chisqr lm_3_1 3
+*
+****************************
+*
+* process 3 VS process 2
+*
+linreg(noprint) u_3 (nbeg+1+3) nend
+#constant mean_Y1_Y2 Yt{3}
+
+compute lm_3_2=%nobs*%rsquared
+cdf(title="langrange multiplier test for process 3 VS process 2") chisqr lm_3_2 2
+*
+* Notes:
+* 1)langrange multiplier test for process 2 VS process 1 Chi-Squared(2)=2.248882
+*   with Significance Level 0.32483402
+* 2)langrange multiplier test for process 3 VS process 1 Chi-Squared(3)=2.413105
+*   with Significance Level 0.49119974
+* 3)langrange multiplier test for process 3 VS process 2 Chi-Squared(2)=0.164845
+*   with Significance Level 0.92088260
+* 4)The langrange multiplier test indicates that process 3 is the most sigificant
+*   at 5% signifiant level.
+*
+*
+*************************************************************
+*
+* e. Information criteria AIC and BIC
+*
+*****************************
+*
+* process 1
+*
+compute p1=3
+* p1 is the numbre of parametres in process 1.
+
+compute aic1=%nobs*log(sigma1**2.0)+2.0*(1+p1)
+compute bic1=%nobs*log(sigma1**2.0)+log(%nobs)*(1+p1)
+display 'aic of process 1=' aic1
+display 'bic of process 1=' bic1
+*
+****************************
+*
+* process 2
+*
+compute p2=2
+* p2 is the numbre of parametres in process 2.
+
+compute aic2=%nobs*log(sigma2**2.0)+2.0*(1+p2)
+compute bic2=%nobs*log(sigma2**2.0)+log(%nobs)*(1+p2)
+display 'aic of process 2=' aic2
+display 'bic of process 2=' bic2
+*
+****************************
+*
+* process 3
+*
+compute p3=1
+* p3 is the numbre of parametres in process 3.
+
+compute aic3=%nobs*log(sigma3**2.0)+2.0*(1+p3)
+compute bic3=%nobs*log(sigma3**2.0)+log(%nobs)*(1+p3)
+display 'aic of process 3=' aic3
+display 'bic of process 3=' bic3
+*
+* Notes:
+* 1)aic of process 1= -3729.51907   bic of process 1= -3711.95811
+* 2)aic of process 2= -3730.27184   bic of process 2= -3717.10112
+* 3)aic of process 3= -3733.11119   bic of process 3= -3724.33071
+* 4)The AIC BIC criteria both indicate that process 3 lead to a comparable good fit
+*
+*
+*
+******************************************************************************************
+*
+* Question 3
+*
+******************************************************************************************
+*
+* a. Lag structure
+*
+**************************************************************
+*
+compute pbar = 2
+compute qbar = 2
+compute nobs=(nend-(nbeg+1)-pbar+1)
+*
+**************************
+*
+* ARMA(1,1)
+*
+compute delta_11 = 0.1
+compute phi1_11 = 0.1
+compute theta1_11 = 0.5
+compute sigma_11 = 0.1
+*
+nonlin delta_11 phi1_11 theta1_11 sigma_11
+*
+compute lk = 0.0
+set u_sp500 nbeg nend = 0.0
+*
+find(method=bfgs,iter=100,stderrs) maximum lk
+  compute lk = 0.0
+  set u_sp500 nbeg nend = 0.0
+*
+  do t=(nbeg+1+pbar),nend
+     set u_sp500 t t = Yt(t)-delta_11-phi1_11*Yt(t-1)+theta1_11*u_sp500(t-1)
+     compute lk = lk - (u_sp500(t)**2.0)/(2.0*sigma_11**2.0)
+  end do t
+*
+  compute lk = -nobs*log(2.0*%pi)/2.0 - nobs*log(sigma_11**2.0)/2.0 + lk
+*
+end find
+*
+*
+* Eigenvalues of phis and thetas
+*
+display phi1_11
+display theta1_11
+*
+* Note: |phi1_11|=0.8212, |theta1_11|=0.8715,ARMA(1,1)is sationary and invertible
+*
+compute ll_11 = %funcval
+compute aic_11 = -2.0*ll_11+2*(1.0+2.0)
+compute bic_11 = -2.0*ll_11+(log(nobs))*(1.0+2.0)
+display 'aic=' aic_11
+display 'bic=' bic_11
+*
+*
+**************************
+*
+* ARMA(1,2)
+*
+compute delta_12 = 0.1
+compute phi1_12 = 0.1
+compute theta1_12 = 0.1
+compute theta2_12 = 0.5
+compute sigma_12 = 0.1
+*
+nonlin delta_12 phi1_12 theta1_12 theta2_12 sigma_12
+*
+compute lk = 0.0
+set u_sp500 nbeg nend = 0.0
+*
+find(method=bfgs,iter=100,stderrs) maximum lk
+  compute lk = 0.0
+  set u_sp500 nbeg nend = 0.0
+*
+  do t=(nbeg+1+pbar),nend
+     set u_sp500 t t = Yt(t)-delta_12-phi1_12*Yt(t-1)+theta1_12*u_sp500(t-1)+theta2_12*u_sp500(t-2)
+     compute lk = lk - (u_sp500(t)**2.0)/(2.0*sigma_12**2.0)
+  end do t
+*
+  compute lk = -nobs*log(2.0*%pi)/2.0 - nobs*log(sigma_12**2.0)/2.0 + lk
+*
+end find
+*
+*
+* Eigenvalues of phis and thetas
+*
+display phi1_12
+*
+declare rect theta12
+dimension theta12(2,2)
+compute theta12=|| theta1_12,theta2_12|1.0,0||
+eigen theta12 evltheta12 *
+display evltheta12
+*
+* Note: |phi1_12|=0.8447, |eigenvalues of thetas|:0.8893,0.0099,
+*       ARMA(1,2)is sationary and invertible
+*
+compute ll_12 = %funcval
+compute aic_12 = -2.0*ll_12+2*(1.0+3.0)
+compute bic_12 = -2.0*ll_12+(log(nobs))*(1.0+3.0)
+display 'aic=' aic_12
+display 'bic=' bic_12
+*
+*************************
+*
+* ARMA(2,1)
+*
+compute delta_21 = 0.1
+compute phi1_21 =  0.1
+compute phi2_21 =  0.5
+compute theta1_21 = 0.1
+compute sigma_21 = 0.1
+*
+nonlin delta_21 phi1_21 phi2_21 theta1_21 sigma_21
+*
+compute lk = 0.0
+set u_sp500 nbeg nend = 0.0
+*
+find(method=bfgs,iter=100,stderrs) maximum lk
+  compute lk = 0.0
+  set u_sp500 nbeg nend = 0.0
+*
+  do t=(nbeg+1+pbar),nend
+     set u_sp500 t t = Yt(t)-delta_21-phi1_21*Yt(t-1)-phi2_21*Yt(t-2)+theta1_21*u_sp500(t-1)
+     compute lk = lk - (u_sp500(t)**2.0)/(2.0*sigma_21**2.0)
+  end do t
+*
+  compute lk = -nobs*log(2.0*%pi)/2.0 - nobs*log(sigma_21**2.0)/2.0 + lk
+*
+end find
+*
+*
+* Eigenvalues of phis and thetas
+*
+declare rect phi21
+dimension phi21(3,3)
+compute phi21=|| phi1_21,phi2_21,0|1.0,0,0|0,0,0||
+eigen phi21 evlphi21 *
+display evlphi21
+*
+display theta1_21
+*
+* Note:|eigenvalues of phis|:0.8353,0.0060,0,
+*      |theta1_21|=0.8821,ARMA(2,1)is sationary and invertible
+*
+compute ll_21 = %funcval
+compute aic_21 = -2.0*ll_21+2*(1.0+3.0)
+compute bic_21 = -2.0*ll_21+(log(nobs))*(1.0+3.0)
+display 'aic=' aic_21
+display 'bic=' bic_21
+*
+*****************************
+*
+* ARMA(2,2)
+*
+compute delta_22 = 0.1
+compute phi1_22 = 0.1
+compute phi2_22 = 0.5
+compute theta1_22 = 0.1
+compute theta2_22 =0.5
+compute sigma_22 = 0.1
+*
+nonlin delta_22 phi1_22 phi2_22 theta1_22 theta2_22 sigma_22
+*
+compute lk = 0.0
+set u_sp500 nbeg nend = 0.0
+*
+find(method=bfgs,iter=100,stderrs) maximum lk
+  compute lk = 0.0
+  set u_sp500 nbeg nend = 0.0
+*
+  do t=(nbeg+1+pbar),nend
+     set u_sp500 t t = Yt(t)-delta_22-phi1_22*Yt(t-1)-phi2_22*Yt(t-2)+theta1_22*u_sp500(t-1)+theta2_22*u_sp500(t-2)
+     compute lk = lk - (u_sp500(t)**2.0)/(2.0*sigma_22**2.0)
+  end do t
+*
+  compute lk = -nobs*log(2.0*%pi)/2.0 - nobs*log(sigma_22**2.0)/2.0 + lk
+*
+end find
+*
+*
+* Eigenvalues of phis and thetas
+*
+declare rect phi22
+dimension phi22(3,3)
+compute phi22=|| phi1_22,phi2_22,0|1.0,0,0|0,0,0||
+eigen phi22 evlphi22 *
+display evlphi22
+*
+declare rect theta22
+dimension theta22(3,3)
+compute theta22=|| theta1_22,theta2_22,0|1.0,0,0|0,1.0,0||
+eigen theta22 evltheta22 *
+display evltheta22
+*
+* Note:|eigenvalues of phis|=0.8140, 0.2331,0,|eigenvalues of thetas|=0.8643,0.2362,0,
+*      ARMA(2,2)is sationary and invertible
+*
+compute ll_22 = %funcval
+compute aic_22 = -2.0*ll_22+2*(1.0+4.0)
+compute bic_22 = -2.0*ll_22+(log(nobs))*(1.0+4.0)
+display 'aic=' aic_22
+display 'bic=' bic_22
+*
+* Notes:
+* 1) table AIC
+*    q/p       1            2
+*     1    -2047.579    -2045.603
+*     2    -2045.588    -2043.835
+*
+* 2) table BIC
+*    q/p       1            2
+*     1    -2034.403    -2028.035
+*     2    -2028.020    -2021.875
+*
+* The AIC, BIC criteria suggest ARMA(1,1) lag stucture.
+*
+*
+******************************************************************************
+*
+* b. Likelihood ratio test
+*
+******************************************************************************
+*
+* H0:ARMA(1,1)
+*
+*
+* ARMA(1,2) VS ARMA(1,1)
+*
+compute lr = 2.0*(ll_12-ll_11) ; * H1: ARMA(1,2)
+cdf chisquared lr 1
+*
+****************************
+*
+* ARMA(2,1) VS ARMA(1,1)
+*
+compute lr = 2.0*(ll_21-ll_11) ; * H1: ARMA(2,1)
+cdf chisquared lr 1
+*
+****************************
+*
+*ARMA(2,2) VS ARMA(1,1)
+*
+compute lr = 2.0*(ll_22-ll_11) ; * H1: ARMA(2,2)
+cdf chisquared lr 1
+*
+*
+* Notes:
+* Table of P-value for likelihood ratio test: H0: ARMA(1,1)
+*    q/p     1        2
+*     1     ---     0.923
+*     2    0.876    0.613
+*
+* H0 is never rejected, we will choose ARMA(1,1) lag structure.
+*
+*
+**************************************************************
+*
+* c. Unconditional and partial autocorrelation
+*
+**************************************************************
+*
+correlate(number=18,results=auto_Yt,partial=partial_Yt,print,qstats,span=1) YT (nbeg+1) nend
+*
+spgraph(vfield=1,hfield=2)
+*
+ graph(samesize,patterns,nodate,header='Uncoditional autocorrelation of Yt',min=-0.25,max=1.0) 1
+ #auto_Yt 1 18 1
+ graph(samesize,patterns,nodate,header='Partial autocorrrelation of Yt',min=-0.25,max=1.0) 1
+ #partial_Yt 1 18 1
+*
+spgraph(done)
+*
+* Note: both the graphie of unconditional autocorrelation and partial autocorrelation
+*       show that the autocorrelation from lag 2 is stable and near to 0. This accords
+*       with the lag structure ARMA(1,1) we select.
+*
+*
+*
+*****************************************************************************************
+*
+* Quetion 4
+*
+*****************************************************************************************
+*
+* ARMA(1,1)
+*
+* a) Response of Yt+i, shock at t
+*
+compute nstep=24
+*
+* Method: compute the recursive analytical solution: psi_i(i>=3)=psi_{i-1}*phi,
+*         where psi_1= sigma, psi_2=(phi-theta)*sigma
+*
+set psi1_Yt 1 nstep = 0.0
+set psi1_Yt 1 1 = sigma_11
+set psi1_Yt 2 2 = (phi1_11-theta1_11)*sigma_11
+do i=3, nstep
+ set psi1_Yt i i = phi1_11*psi1_Yt(t-1)
+end do i
+*
+print(nodate) 1 nstep psi1_Yt
+*
+graph(patterns,nodate,header='Dynamic response of Yt with shock only at t') 1
+#psi1_Yt 1 nstep 1
+*
+* Notes:
+* The shock has transitory effect, because the ARMA(1,1) of Yt is stationary.
+* From i=2 the effect of the shock is oscillatory because phi1_11 is negative.
+*
+*
+**************************************************************
+*
+* b) Response of Zt+i, shock at t
+*
+* ARMA(1,1)of Zt
+*
+compute delta_z11 = 0.1
+compute phi1_z11 = 0.1
+compute theta1_z11 = 0.5
+compute sigma_z11 = 0.1
+*
+nonlin delta_z11 phi1_z11 theta1_z11 sigma_z11
+*
+compute lk = 0.0
+set u_zsp500 nbeg nend = 0.0
+*
+find(method=bfgs,iter=100,stderrs) maximum lk
+  compute lk = 0.0
+  set u_zsp500 nbeg nend = 0.0
+*
+  do t=(nbeg+pbar),nend
+     set u_zsp500 t t = Zt(t)-delta_z11-phi1_z11*Zt(t-1)+theta1_z11*u_zsp500(t-1)
+     compute lk = lk - (u_zsp500(t)**2.0)/(2.0*sigma_z11**2.0)
+  end do t
+*
+  compute lk = -nobs*log(2.0*%pi)/2.0 - nobs*log(sigma_z11**2.0)/2.0 + lk
+*
+end find
+*
+* Eigenvalues of phis and thetas
+*
+display phi1_z11
+display theta1_z11
+*
+*
+* Method: compute the recursive analytical solution: psi_i(i>=3)=psi_{i-1}*phi,
+*         where psi_1= sigma, psi_2=(phi-theta)*sigma
+*
+set psi1_Zt 1 nstep = 0.0
+set psi1_Zt 1 1 = sigma_z11
+set psi1_Zt 2 2 = (phi1_z11-theta1_z11)*sigma_z11
+do i=3, nstep
+ set psi1_Zt i i = phi1_z11*psi1_Zt(t-1)
+end do i
+*
+print(nodate) 1 nstep psi1_Zt
+*
+graph(patterns,nodate,header='Dynamic response of Zt with shock only at t') 1
+#psi1_Zt 1 nstep 1
+*
+* Notes:
+* The effect of the shock is permanent from i=2, because the ARMA(1,1)of Zt is not
+* stationary with phi1_z11=0.999. The shock has long mermory.
+*
+*
+************************************************************
+*
+* c) Response of Yt+i, shock at t+i
+*
+* Method: compute the recursive analytical solution:
+*         psi_i(i>=2)=psi_{i-1}+(phi^(i-2))*(phi-theta)*sigma, where psi_1= sigma.
+*
+set psi2_Yt 1 nstep = 0.0
+set psi2_Yt 1 1 = sigma_11
+*
+do i=2, nstep
+ set psi2_Yt i i = psi2_Yt(t-1)+(phi1_11**(i-2))*(phi1_11-theta1_11)*sigma_11
+end do i
+*
+print(nodate) 1 nstep psi2_Yt
+*
+graph(patterns,nodate,header='Dynamic response of Yt with shock at t+i') 1
+#psi2_Yt 1 nstep 1
+*
+* Notes:
+* The effect of the shock is permanent, because if the shock happens
+* at all the t=i, the shock has consistent mermory. The stability of the
+* shock is looks like in 4 b), as the phi1_z11=0.999,almost=1,which also
+* means that at every t=i, we add one unite sigma shock,it's the same case
+* as here.
+*
+************************************************************
+*
+* d) Response of Zt+i, shock at t+i
+*
+*Method: compute the recursive analytical solution:
+*         psi_i(i>=2)=psi_{i-1}+(phi^(i-2))*(phi-theta)*sigma, where psi_1= sigma.
+*
+set psi2_Zt 1 nstep = 0.0
+set psi2_Zt 1 1 = sigma_z11
+*
+do i=2, nstep
+ set psi2_Zt i i = psi2_Zt(t-1)+(phi1_z11**(i-2))*(phi1_z11-theta1_z11)*sigma_z11
+end do i
+*
+print(nodate) 1 nstep psi2_Zt
+*
+graph(patterns,nodate,header='Dynamic response of Zt with shock at t+i') 1
+#psi2_Zt 1 nstep 1
+*
+* Notes:
+* The effect of the shock is explosive, there two aspects to influence this
+* result, one is that ARMA(1,1)of Zt is not stationary with phi1_z11=0.999,
+* the other one is that the shock happens at all the t=i. So the response
+* line has a slope almost equal to 30 degrees, as we add one standard-deviation
+* shock at all the t=i, the response is accumulated.
+*
+*
+*
+*****************************************************************************************
+*
+* Question 5
+*
+*****************************************************************************************
+*
+compute nfor = (2016:01)
+*
+* a) Forecast of Yt+i
+*
+* Method:
+* Compute the forecast recursively: E_t Y_{t+i}= delta + phi* E_t Y_{t+i-1}, where E_t
+* Y_t=Y_t, E_t u_t = u_t. Compute the variance of the forecast error analyticlally:
+* Var_t(Y_{t+i})= sigma^2 + Sum_{j=0}^{i-2} phi^(2j)*sigma^2*(phi-theta)^2,
+* where Var_t(Y_{t+1})= sigma^2.
+*
+set f_Yt nbeg nend = 0.0
+set f_Yt (nfor-1) (nfor-1) = Yt(t)
+set f_Yt nfor nfor = delta_11 + phi1_11*Yt(t-1) - theta1_11*u_sp500(t-1)
+*
+do i=(nfor+1),nend
+ set f_Yt i i = delta_11 + phi1_11*f_Yt(t-1)
+end do i
+*
+*
+set v_Yt nbeg nend = 0.0
+set v_Yt nfor nfor = sigma_11**2
+*
+do i=(nfor+1),nend
+set v_Yt i i = v_Yt(t-1) + (phi1_11**(2.0*(i-nfor-1.0)))*(sigma_11**2)*((phi1_11-theta1_11)**2)
+end do i
+*
+*
+print(dates) nfor nend f_Yt
+print(dates) nfor nend v_Yt
+*
+* Unconditional Moments
+*
+statistics Yt (nbeg+1) nend
+*
+graph(patterns,dates,header='Forecast for Yt') 2
+#Yt nfor nend 1
+#f_Yt nfor nend 2
+*
+* Notes:
+* The conditional expectation (the forecast) tends to the unconditional expectation
+* (the mean) and the conditional variance ( the variance of the forcats error) tends
+* to the unconditional variance because the series Yt is stationary.
+*
+*
+*************************************************************
+*
+* b) Forecast of Zt+i
+*
+* Method:
+* Compute the forecast recursively: E_t Z_{t+i}= delta + phi* E_t Z_{t+i-1},
+* where E_t Z_t=Z_t, E_t u_t = u_t.
+* Compute the variance of the forecast error analyticlally:
+* Var_t(Z_{t+i})= sigma^2 + Sum_{j=0}^{i-2} phi^(2j)*sigma^2*(phi-theta)^2,
+* where Var_t(Z_{t+1})= sigma^2.
+*
+set f_Zt nbeg nend = 0.0
+set f_Zt (nfor-1) (nfor-1) = Zt(t)
+set f_Zt nfor nfor = delta_z11 + phi1_z11*Zt(t-1) - theta1_z11*u_zsp500(t-1)
+*
+do i=(nfor+1),nend
+ set f_Zt i i = delta_z11 + phi1_z11*f_Zt(t-1)
+end do i
+*
+*
+set v_Zt nbeg nend = 0.0
+set v_Zt nfor nfor = sigma_z11**2
+*
+do i=(nfor+1),nend
+set v_Zt i i = v_Zt(t-1) + (phi1_z11**(2.0*(i-nfor-1.0)))*(sigma_z11**2)*((phi1_z11-theta1_z11)**2)
+end do i
+*
+*
+print(dates) nfor nend f_Zt
+print(dates) nfor nend v_Zt
+*
+* Unconditional Moments
+*
+statistics Zt (nbeg+1) nend
+*
+graph(patterns,dates,header='Forecast for Zt') 2
+#Zt nfor nend 1
+#f_Zt nfor nend 2
+*
+* Notes:
+* The conditional expectation (the forecast) seems to have a time trend and never tends
+* to the unconditional expectation. The conditional variance ( the variance of the
+* forcats error) also increase with the time, because the series Zt is not stationary.
+*
+*
+************************************************************
+*
+* c) Forecast error of Yt+i
+*
+* Forecast error by compareing the real data and forecast data
+*
+set fe_Yt1 nfor nend = Yt-f_Yt
+*
+print(dates) nfor nend fe_Yt1
+*
+*
+* Compute the forecast error with analytical solution:
+*          fe_Yt2 = u_{t+i} + Sum_{j=0}^{i-1-1} phi^j*(phi-theta)*u_{t+i-j-1}
+*
+compute sum = 0.0
+set fe_Yt2 nbeg nend = 0.0
+set fe_Yt2 nfor nfor = u_sp500(t)
+*
+do i=(nfor+1),nend
+  compute sum = sum+(phi1_11**(i-(nfor-1.0)-1.0-1.0))*(phi1_11-theta1_11)*u_sp500(t-(i-nfor-1)-1)
+  set fe_Yt2 i i = u_sp500(t) + sum
+end do i
+*
+print(dates) nfor nend fe_Yt1 fe_Yt2
+*
+*
+************************************************************
+*
+* d) Forecast error of Zt+i
+*
+* Forecast error by compareing the real data and forecast data
+*
+set fe_Zt1 nfor nend = Zt-f_Zt
+*
+print(dates) nfor nend fe_Zt1
+*
+*
+* Compute the forecast error with analytical solution:
+*          fe_Zt2 = u_{t+i} + Sum_{j=0}^{i-1-1} phi^j*(phi-theta)*u_{t+i-j-1}
+*
+compute sum = 0.0
+set fe_Zt2 nbeg nend = 0.0
+set fe_Zt2 nfor nfor = u_zsp500(t)
+*
+do i=(nfor+1),nend
+  compute sum = sum+(phi1_z11**(i-(nfor-1.0)-1.0-1.0))*(phi1_z11-theta1_z11)*u_zsp500(t-(i-nfor-1)-1)
+  set fe_Zt2 i i = u_zsp500(t) + sum
+end do i
+*
+print(dates) nfor nend fe_Zt1 fe_Zt2
+*
+*
+*
+*****************************************************************************************
+*
+* Question 6
+*
+*****************************************************************************************
+*
+* a) Parametres estimate by maximizing the conditional likelihood function
+*
+compute p_ar = 1
+compute nobs = (nend-(nbeg+1)-p_ar+1)
+*
+compute delta_c = 0.1
+compute phi1_c = 0.1
+*
+compute alpha0_c = 0.1
+compute alpha1_c = 0.5
+compute beta1_c = 0.3
+*
+nonlin delta_c phi1_c alpha0_c alpha1_c beta1_c
+*
+compute lk = 0.0
+set u2_sp500_c nbeg nend = alpha0_c/(1.0-alpha1_c-beta1_c)
+set h_c nbeg nend = alpha0_c/(1.0-alpha1_c-beta1_c)
+*
+find(method=bfgs,iter=100,stderrs) maximum lk
+compute lk = 0.0
+set u2_sp500_c nbeg nend = alpha0_c/(1.0-alpha1_c-beta1_c)
+set h_c nbeg nend = alpha0_c/(1.0-alpha1_c-beta1_c)
+*
+do t=(nbeg+1+p_ar),nend
+  set u_sp500_c t t = Yt(t)-delta_c-phi1_c*Yt(t-1)
+  set u2_sp500_c t t = u_sp500_c(t)**2.0
+  set h_c t t = alpha0_c+alpha1_c*u2_sp500_c(t-1)+beta1_c*h_c(t-1)
+  compute lk = lk - log(h_c(t))/2.0 - (u_sp500_c(t)**2.0)/(2.0*h_c(t))
+end do t
+*
+compute lk = -nobs*log(2.0*%pi)/2.0 + lk
+*
+end find
+*
+compute sigma2_c = alpha0_c/(1.0-alpha1_c-beta1_c)
+display sigma2_c
+*
+*
+**************************************************************
+*
+* b) Parameters estimate by exact likelihood function
+*
+compute Y1 = Yt (t=2)
+display Y1
+*
+* Y1_mu = delta_e/(1.0-phi1_e),which is the unconditional mean of Yt
+* Y1_sigma = (alpha0_e/(1.0-alpha1_e-beta1_e)), which is the unconditional
+* variance of Yt
+*
+compute delta_e = 0.1
+compute phi1_e = 0.1
+*
+compute alpha0_e = 0.1
+compute alpha1_e = 0.5
+compute beta1_e = 0.3
+*
+nonlin delta_e phi1_e alpha0_e alpha1_e beta1_e
+*
+compute lk = 0.0
+set u2_sp500_e nbeg nend = alpha0_e/(1.0-alpha1_e-beta1_e)
+set h_e nbeg nend = alpha0_e/(1.0-alpha1_e-beta1_e)
+*
+find(method=bfgs,iter=100,stderrs) maximum lk
+compute lk = 0.0
+*
+set u2_sp500_e nbeg nend = alpha0_e/(1.0-alpha1_e-beta1_e)
+set h_e nbeg nend = alpha0_e/(1.0-alpha1_e-beta1_e)
+*
+do t=(nbeg+1+p_ar),nend
+  set u_sp500_e t t = Yt(t)-delta_e-phi1_e*Yt(t-1)
+  set u2_sp500_e t t = u_sp500_e(t)**2.0
+  set h_e t t = alpha0_e+alpha1_e*u2_sp500_e(t-1)+beta1_e*h_e(t-1)
+  compute lk = lk - log(h_e(t))/2.0 - log(alpha0_e/(1.0-alpha1_e-beta1_e))/2.0 - (u_sp500_e(t)**2.0)/(2.0*h_e(t)) - ((Y1-(delta_e/(1.0-phi1_e)))**2.0)/(2.0*(alpha0_e/(1.0-alpha1_e-beta1_e)))
+end do t
+*
+compute lk = -(nobs+1)*log(2.0*%pi)/2.0 + lk
+*
+end find
+*
+compute sigma2_e = alpha0_e/(1.0-alpha1_e-beta1_e)
+display sigma2_e
+*
+*
+linreg(noprint) Yt (nbeg+1+p_ar) nend u_sp500_ar1
+#constant Yt{1 to p_ar}
+*
+statistic(print) u_sp500_ar1 (nbeg+1+p_ar) nend
+*
+spgraph(vfield=1,hfield=2)
+*
+  graph(samesize,patterns,date,header='Heteroscedasticity with maximum the conditional likelihood estimation') 1
+  #h_c (nbeg+1) nend 1
+  graph(samesize,patterns,date,header='Heteroscedasticity with maximum the exact likelihood estimation') 1
+  #h_e (nbeg+1) nend 1
+*
+spgraph(done)
+*
+* Notes:
+* 1) The alpha1_c and beta1_c are significantly not equal to 0 with 5% significant
+*    level which imply that there is conditional heteroscedasticity. It's also the
+*    case for alpha1_e and beta1_e which computed from the exact likelihood function.
+* 2) With the conditional likelihood function, beta1_c is negatif, and alpha1_c+beta1_c
+*    is also negatif, which is not accord with the restriction that 0 < beta1 < 1 in
+*    GARCH process, the ARMA(1,1) process implied by GARCH(1,1) is not stationary and
+*    not invertible. With the exact likelihood function, 0< (beta1_e=0.8774)<1,and
+*    0<((alpha1_e+beta1_e)=0.976)<1, which is accord with the restrictions in GARCH
+*    process, the ARMA(1,1) process implied by GARCH(1,1) is stationary and invertible.
+* 3) The unconditional variances of the error term associated with the conditinal
+*    likelihood function is sigma**2 = alpha0_c/(1-alpha1_c-beta1_c)=0.00188, which is
+*    close to the unconditional variance computed from the sample error:
+*    sigma**2=0.001887. And the unconditional variances of the error term associated
+*    with the exact likelihood function is 0.000189988.
+*
+*
+*
+**************************************************************
+*
+* c) Specification test
+*
+**************************************************************
+*
+set test_exactlk (nbeg+1+P_ar) nend = u2_sp500_e(t)/h_e(t)
+*
+correlation(number=6, print,qstats,span=1) test_exactlk (nbeg+1+p_ar) nend
+*
+* Notes:
+* if the GARCH(1,1) is an adequate specification of the conditional variance,
+* zt=(ut^2/h)is not autocorrelated, and from a Ljung-Box test, at 5% significant
+* level, we can not reject the null hypothesis H0 indicate that Zt is not
+* autocorrelated. So with the order k=6, at 5% significant level, the GARCH(1,1)
+* estimated by the exact likelihood function is an appropriate process to
+* describe the conditional variance of Yt.
+*
+*
+set test_condlk (nbeg+1+P_ar) nend = u2_sp500_c(t)/h_c(t)
+*
+correlation(number=6, print,qstats,span=1) test_condlk (nbeg+1+p_ar) nend
+*
+* Notes:
+* With the order k=6, at 5% significant level, the GARCH(1,1) estimated by the
+* conditional likelihood function is not an appropriate process to describe the
+* conditional variance of Yt.
+*
+*
+*
+* END
